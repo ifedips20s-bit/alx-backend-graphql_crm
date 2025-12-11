@@ -2,6 +2,9 @@ import graphene
 from graphene_django import DjangoObjectType
 from crm.models import Customer
 
+class Query(CRMQuery, graphene.ObjectType):
+    pass
+
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer

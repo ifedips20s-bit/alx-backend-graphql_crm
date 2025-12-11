@@ -1,55 +1,60 @@
 import os
 import django
-from datetime import datetime
-from decimal import Decimal
+from django.utils import timezone
 
-# Set up Django environment
+# Setup Django environment
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "alx_backend_graphql.settings")
 django.setup()
 
 from crm.models import Customer, Product, Order
 
-# --- Clear existing data (optional) ---
-Customer.objects.all().delete()
-Product.objects.all().delete()
-Order.objects.all().delete()
-
 # --- Seed Customers ---
-customers = [
-    Customer(first_name="John", last_name="Doe", email="john@example.com", phone="1234567890"),
-    Customer(first_name="Jane", last_name="Smith", email="jane@example.com", phone="9876543210"),
-    Customer(first_name="Alice", last_name="Brown", email="alice@example.com", phone="5555555555"),
+customers_data = [
+    {"first_name": "Alice", "last_name": "Smith", "email": "alice@example.com", "phone": "+1234567890"},
+    {"first_name": "Bob", "last_name": "Johnson", "email": "bob@example.com", "phone": "123-456-7890"},
+    {"first_name": "Carol", "last_name": "Williams", "email": "carol@example.com", "phone": None},
 ]
 
-Customer.objects.bulk_create(customers)
-print("Seeded customers.")
+customers = []
+for c in customers_data:
+    customer = Customer(**c)
+    customer.full_clean()  # validates email, phone etc.
+    customer.save()
+    customers.append(customer)
+
+print(f"Seeded {len(customers)} customers.")
 
 # --- Seed Products ---
-products = [
-    Product(name="Laptop", price=Decimal("1200.00"), stock=10),
-    Product(name="Mouse", price=Decimal("25.50"), stock=50),
-    Product(name="Keyboard", price=Decimal("45.00"), stock=30),
+products_data = [
+    {"name": "Laptop", "price": 999.99, "stock": 10},
+    {"name": "Smartphone", "price": 499.99, "stock": 20},
+    {"name": "Headphones", "price": 199.99, "stock": 50},
 ]
 
-Product.objects.bulk_create(products)
-print("Seeded products.")
+products = []
+for p in products_data:
+    product = Product(**p)
+    product.full_clean()
+    product.save()
+    products.append(product)
+
+print(f"Seeded {len(products)} products.")
 
 # --- Seed Orders ---
-# Fetch created objects
-all_customers = list(Customer.objects.all())
-all_products = list(Product.objects.all())
+orders_data = [
+    {"customer": customers[0], "product_indices": [0, 2]},  # Alice buys Laptop + Headphones
+    {"customer": customers[1], "product_indices": [1]},     # Bob buys Smartphone
+]
 
-# Example orders
-order1 = Order(customer=all_customers[0])
-order1.save()
-order1.products.set([all_products[0], all_products[1]])  # Laptop + Mouse
+orders = []
+for o in orders_data:
+    order = Order(customer=o["customer"], order_date=timezone.now())
+    order.save()  # save before adding M2M
+    selected_products = [products[i] for i in o["product_indices"]]
+    order.products.set(selected_products)
+    # calculate total_amount
+    order.total_amount = sum(p.price for p in selected_products)
+    order.save()
+    orders.append(order)
 
-order2 = Order(customer=all_customers[1])
-order2.save()
-order2.products.set([all_products[1], all_products[2]])  # Mouse + Keyboard
-
-order3 = Order(customer=all_customers[2])
-order3.save()
-order3.products.set([all_products[0], all_products[2]])  # Laptop + Keyboard
-
-print("Seeded orders.")
+print(f"Seeded {len(orders)} orders.")

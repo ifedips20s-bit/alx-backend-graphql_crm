@@ -1,25 +1,30 @@
 import graphene
 from graphene_django import DjangoObjectType
+from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
 from .models import Customer, Product, Order
+from .filters import CustomerFilter, ProductFilter, OrderFilter
 
 # --- GraphQL Types ---
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        fields = ("id", "first_name", "last_name", "email", "phone")
+        fields = ("id", "first_name", "last_name", "email", "phone", "created_at")
+        filterset_class = CustomerFilter
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = ("id", "name", "price", "stock")
+        filterset_class = ProductFilter
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = ("id", "customer", "products", "total_amount", "order_date")
+        filterset_class = OrderFilter
 
 # --- Mutations ---
 class CreateCustomer(graphene.Mutation):
@@ -117,25 +122,31 @@ class CreateOrder(graphene.Mutation):
         order = Order(customer=customer, order_date=order_date)
         order.save()
         order.products.set(products)
-        # calculate total_amount
         order.total_amount = sum(p.price for p in products)
         order.save()
 
         return CreateOrder(order=order)
 
-# --- Mutation class ---
+# --- Mutation Class ---
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
 
-# --- Query class for testing ---
+# --- Query Class ---
 class Query(graphene.ObjectType):
+    # Non-filtered queries
     customers = graphene.List(CustomerType)
     products = graphene.List(ProductType)
     orders = graphene.List(OrderType)
 
+    # Filtered connection queries
+    all_customers = DjangoFilterConnectionField(CustomerType)
+    all_products = DjangoFilterConnectionField(ProductType)
+    all_orders = DjangoFilterConnectionField(OrderType)
+
+    # Resolvers for non-filtered queries
     def resolve_customers(root, info):
         return Customer.objects.all()
 

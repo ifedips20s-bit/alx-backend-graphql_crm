@@ -1,1 +1,3 @@
 django-crontab
+celery>=5.5
+django-celery-beat>=2.5

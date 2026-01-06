@@ -1,4 +1,5 @@
 import graphene
+from graphene import relay
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 from django.core.exceptions import ValidationError
@@ -12,20 +13,35 @@ from .filters import CustomerFilter, ProductFilter, OrderFilter
 class CustomerType(DjangoObjectType):
     class Meta:
         model = Customer
-        fields = ("id", "first_name", "last_name", "email", "phone", "created_at")
+        fields = ("id", "email", "phone")  # Only fields that exist in your model
         filterset_class = CustomerFilter
+        interfaces = (relay.Node,)
 
 class ProductType(DjangoObjectType):
     class Meta:
         model = Product
         fields = ("id", "name", "price", "stock")
         filterset_class = ProductFilter
+        interfaces = (relay.Node,)
 
 class OrderType(DjangoObjectType):
     class Meta:
         model = Order
         fields = ("id", "customer", "products", "total_amount", "order_date")
         filterset_class = OrderFilter
+        interfaces = (relay.Node,)
+
+# --- Input Types ---
+class CustomerInput(graphene.InputObjectType):
+    first_name = graphene.String(required=True)
+    last_name = graphene.String(required=True)
+    email = graphene.String(required=True)
+    phone = graphene.String()
+
+class ProductInput(graphene.InputObjectType):
+    name = graphene.String(required=True)
+    price = graphene.Float(required=True)
+    stock = graphene.Int(default_value=0)
 
 # --- Mutations ---
 class CreateCustomer(graphene.Mutation):
@@ -48,17 +64,7 @@ class CreateCustomer(graphene.Mutation):
 
 class BulkCreateCustomers(graphene.Mutation):
     class Arguments:
-        input = graphene.List(
-            graphene.InputObjectType(
-                name="CustomerInput",
-                fields={
-                    "first_name": graphene.String(required=True),
-                    "last_name": graphene.String(required=True),
-                    "email": graphene.String(required=True),
-                    "phone": graphene.String()
-                }
-            )
-        )
+        input = graphene.List(CustomerInput, required=True)
 
     customers = graphene.List(CustomerType)
     errors = graphene.List(graphene.String)
@@ -66,6 +72,7 @@ class BulkCreateCustomers(graphene.Mutation):
     def mutate(self, info, input):
         created_customers = []
         errors = []
+
         with transaction.atomic():
             for c in input:
                 try:
@@ -75,7 +82,7 @@ class BulkCreateCustomers(graphene.Mutation):
                         first_name=c.first_name,
                         last_name=c.last_name,
                         email=c.email,
-                        phone=c.get("phone")
+                        phone=c.phone
                     )
                     customer.full_clean()
                     customer.save()
@@ -127,7 +134,7 @@ class CreateOrder(graphene.Mutation):
 
         return CreateOrder(order=order)
 
-# --- Low Stock Mutation ---
+# --- Update Low Stock Products Mutation ---
 class UpdateLowStockProducts(graphene.Mutation):
     success = graphene.String()
     products = graphene.List(ProductType)
@@ -146,7 +153,7 @@ class UpdateLowStockProducts(graphene.Mutation):
             products=updated_products
         )
 
-# --- Single Mutation Class ---
+# --- Mutation Class ---
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
@@ -156,17 +163,14 @@ class Mutation(graphene.ObjectType):
 
 # --- Query Class ---
 class Query(graphene.ObjectType):
-    # Non-filtered queries
     customers = graphene.List(CustomerType)
     products = graphene.List(ProductType)
     orders = graphene.List(OrderType)
 
-    # Filtered connection queries
     all_customers = DjangoFilterConnectionField(CustomerType)
     all_products = DjangoFilterConnectionField(ProductType)
     all_orders = DjangoFilterConnectionField(OrderType)
 
-    # Resolvers for non-filtered queries
     def resolve_customers(root, info):
         return Customer.objects.all()
 

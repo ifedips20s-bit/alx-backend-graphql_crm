@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 from datetime import datetime, timedelta
-from gql import gql, Client
+from gql import, "gql", "Client"
 from gql.transport.requests import RequestsHTTPTransport
 
 

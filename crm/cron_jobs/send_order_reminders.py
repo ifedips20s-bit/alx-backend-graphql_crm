@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from gql import gql, Client
 from gql.transport.requests import RequestsHTTPTransport
 
+
 # GraphQL endpoint
 GRAPHQL_URL = "http://localhost:8000/graphql"
 

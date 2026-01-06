@@ -65,7 +65,6 @@ class BulkCreateCustomers(graphene.Mutation):
     def mutate(self, info, input):
         created_customers = []
         errors = []
-
         with transaction.atomic():
             for c in input:
                 try:
@@ -127,12 +126,32 @@ class CreateOrder(graphene.Mutation):
 
         return CreateOrder(order=order)
 
-# --- Mutation Class ---
+# --- Low Stock Mutation ---
+class UpdateLowStockProducts(graphene.Mutation):
+    success = graphene.String()
+    products = graphene.List(ProductType)
+
+    def mutate(self, info):
+        low_stock_products = Product.objects.filter(stock__lt=10)
+        updated_products = []
+
+        for product in low_stock_products:
+            product.stock += 10
+            product.save()
+            updated_products.append(product)
+
+        return UpdateLowStockProducts(
+            success="Low stock products updated successfully",
+            products=updated_products
+        )
+
+# --- Single Mutation Class ---
 class Mutation(graphene.ObjectType):
     create_customer = CreateCustomer.Field()
     bulk_create_customers = BulkCreateCustomers.Field()
     create_product = CreateProduct.Field()
     create_order = CreateOrder.Field()
+    update_low_stock_products = UpdateLowStockProducts.Field()
 
 # --- Query Class ---
 class Query(graphene.ObjectType):

@@ -42,3 +42,5 @@ def update_low_stock():
 
     except Exception as e:
         print(f"Error updating low-stock products: {e}")
+
+/tmp/crm_heartbeat_log.txt", "def log_crm_heartbeat():
